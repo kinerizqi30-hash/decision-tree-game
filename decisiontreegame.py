@@ -15,56 +15,81 @@ def play_sound(file):
         audio = open(file, "rb").read()
         b64 = base64.b64encode(audio).decode()
 
-        audio_html = f"""
+        st.markdown(f"""
         <audio autoplay>
             <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
         </audio>
-        """
-        st.markdown(audio_html, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     except:
-        pass  # kalau file tidak ada tetap jalan
+        pass
 
 # =========================
-# CSS RPG UI
+# CSS MODERN RPG
 # =========================
 st.markdown("""
 <style>
-body {
-    background: #0b0f19;
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap');
+
+html, body {
+    background: radial-gradient(circle at top, #0b1220, #05070f);
     color: white;
+    font-family: 'Orbitron', sans-serif;
 }
 
 h1 {
     text-align: center;
-    color: #ffcc00;
-    text-shadow: 0 0 20px #ffcc00;
+    color: #ffd700;
+    text-shadow: 0 0 25px #ffcc00;
+    animation: glow 2s infinite alternate;
 }
 
-div.stButton > button {
+@keyframes glow {
+    from { text-shadow: 0 0 10px #ffcc00; }
+    to { text-shadow: 0 0 30px #ffcc00; }
+}
+
+.card {
+    background: rgba(255,255,255,0.05);
+    padding: 15px;
+    border-radius: 15px;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 25px #00ffcc;
+}
+
+.enemy-card {
+    background: rgba(255,0,0,0.1);
+    border: 1px solid red;
+    padding: 15px;
+    border-radius: 15px;
+}
+
+button {
+    border-radius: 12px !important;
+    font-weight: bold;
+}
+
+.stButton > button {
     background: linear-gradient(45deg, #ff3c3c, #ff9900);
     color: white;
-    border-radius: 10px;
     height: 50px;
-    font-weight: bold;
     transition: 0.2s;
 }
 
-div.stButton > button:hover {
-    transform: scale(1.05);
+.stButton > button:hover {
+    transform: scale(1.07);
     box-shadow: 0 0 15px #ffcc00;
-}
-
-.enemy-box {
-    padding: 15px;
-    border: 2px solid red;
-    border-radius: 10px;
-    background: #1f2937;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # =========================
-# INIT PLAYER
+# INIT GAME STATE
 # =========================
 if "player" not in st.session_state:
     st.session_state.player = {
@@ -102,11 +127,13 @@ monsters = [
 ]
 
 # =========================
-# FUNCTIONS
+# UTIL
 # =========================
 def r(a, b):
     return random.randint(a, b)
 
+def click():
+    play_sound("click.mp3")
 
 def level_up():
     need = player["level"] * 60
@@ -117,43 +144,43 @@ def level_up():
         player["exp"] = 0
         player["gold"] += 50
         player["inventory"].append("Potion")
-
         play_sound("levelup.mp3")
         st.success("🔥 LEVEL UP!")
-
 
 def spawn_enemy():
     m = random.choice(monsters)
     st.session_state.enemy = {
         "name": m["name"],
-        "hp": m["hp"] + player["level"] * 5,
+        "hp": m["hp"] + player["level"] * 6,
         "min": m["min"],
         "max": m["max"]
     }
 
-
+# =========================
+# BATTLE SYSTEM
+# =========================
 def attack():
     enemy = st.session_state.enemy
-
     w = weapons[player["weapon"]]
-    dmg = r(w[0], w[1])
 
+    dmg = r(w[0], w[1])
     crit = r(1, 100) <= 20
+
     if crit:
         dmg *= 2
 
     enemy["hp"] -= dmg
     play_sound("hit.mp3")
 
-    st.success(f"⚔️ Kamu serang {dmg}")
+    st.success(f"⚔️ Damage: {dmg}")
 
     if crit:
-        st.warning("💥 CRITICAL!")
+        st.warning("💥 CRITICAL HIT!")
 
     if enemy["hp"] <= 0:
-        st.success(f"☠️ {enemy['name']} kalah!")
-        player["gold"] += r(20, 50)
-        player["exp"] += r(20, 40)
+        st.success(f"☠️ {enemy['name']} defeated!")
+        player["gold"] += r(20, 60)
+        player["exp"] += r(20, 50)
         play_sound("win.mp3")
         level_up()
         st.session_state.enemy = None
@@ -164,27 +191,22 @@ def attack():
     player["hp"] -= edmg
     play_sound("hurt.mp3")
 
-    st.error(f"👹 Musuh serang {edmg}")
-
     if player["hp"] <= 0:
         play_sound("gameover.mp3")
         game_over()
 
-
 def use_potion():
     if "Potion" in player["inventory"]:
         player["inventory"].remove("Potion")
-        heal = r(20, 40)
+        heal = r(25, 50)
         player["hp"] = min(player["max_hp"], player["hp"] + heal)
         play_sound("heal.mp3")
         st.success(f"💚 Heal +{heal}")
     else:
-        st.error("Tidak ada potion")
-
+        st.error("Potion habis!")
 
 def game_over():
-    st.error("💀 GAME OVER RESET")
-
+    st.error("💀 GAME OVER - RESET")
     player.update({
         "hp": 100,
         "max_hp": 100,
@@ -194,47 +216,50 @@ def game_over():
         "weapon": "Tangan Kosong",
         "inventory": ["Potion"]
     })
-
     st.session_state.enemy = None
 
-
-def click():
-    play_sound("click.mp3")
-
 # =========================
-# UI HEADER
+# UI TITLE
 # =========================
 st.title("⚔️ RPG LEGEND ULTIMATE")
 
 # =========================
-# SIDEBAR
+# STATUS PANEL
 # =========================
-st.sidebar.header("STATUS")
-st.sidebar.write(f"❤️ HP {player['hp']}/{player['max_hp']}")
-st.sidebar.write(f"⭐ Level {player['level']}")
-st.sidebar.write(f"💰 Gold {player['gold']}")
-st.sidebar.write(f"⚔️ Weapon {player['weapon']}")
-st.sidebar.write("🎒", player["inventory"])
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.markdown("### ❤️ HP")
+    st.progress(player["hp"] / player["max_hp"])
+
+with col2:
+    st.markdown(f"### ⭐ Level {player['level']}")
+    st.write(f"EXP: {player['exp']}")
+
+with col3:
+    st.markdown(f"### 💰 Gold: {player['gold']}")
+
+st.markdown("---")
 
 # =========================
-# WORLD
+# WORLD ACTION
 # =========================
 st.subheader("🌍 Dunia")
 
-c1, c2, c3 = st.columns(3)
+a, b, c = st.columns(3)
 
-with c1:
+with a:
     if st.button("🌲 Hutan"):
         click()
         spawn_enemy()
 
-with c2:
+with b:
     if st.button("🏰 Kastil"):
         click()
         player["exp"] += 10
         spawn_enemy()
 
-with c3:
+with c:
     if st.button("🕳️ Gua"):
         click()
         spawn_enemy()
@@ -244,22 +269,22 @@ with c3:
 # =========================
 st.subheader("🛒 Shop")
 
-if st.button("Beli Pedang Kayu (50 Gold)"):
+if st.button("⚔️ Pedang Kayu (50 Gold)"):
     click()
     if player["gold"] >= 50:
         player["gold"] -= 50
         player["weapon"] = "Pedang Kayu"
-        st.success("Terbeli!")
+        st.success("Weapon upgraded!")
 
 # =========================
-# BATTLE
+# ENEMY UI
 # =========================
 enemy = st.session_state.enemy
 
 if enemy:
     st.markdown(f"""
-    <div class="enemy-box">
-        👹 {enemy['name']}<br>
+    <div class="enemy-card">
+        👹 <b>{enemy['name']}</b><br>
         ❤️ HP: {enemy['hp']}
     </div>
     """, unsafe_allow_html=True)
@@ -273,6 +298,5 @@ if enemy:
     with b2:
         if st.button("🧪 Potion"):
             use_potion()
-
 else:
-    st.info("Belum ada musuh")
+    st.info("Tidak ada musuh. Jelajahi dunia!")
