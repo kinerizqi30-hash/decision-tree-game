@@ -1,5 +1,7 @@
 import streamlit as st
 import random
+import json
+import base64
 
 # =========================
 # CONFIG (FORCE FULL WIDE)
@@ -37,7 +39,6 @@ html, body, [data-testid="stAppViewContainer"] {
     font-family: 'Poppins', sans-serif;
 }
 
-/* Memaksimalkan space block utama streamlit */
 [data-testid="stMainBlockContainer"] {
     max-width: 100% !important;
     padding-left: 2rem !important;
@@ -101,13 +102,13 @@ html, body, [data-testid="stAppViewContainer"] {
 if "player" not in st.session_state:
     st.session_state.player = {
         "name": "Hero",
-        "hp": 150,          # Dipermudah: HP awal lebih besar
+        "hp": 150,          
         "max_hp": 150,
         "level": 1,
         "exp": 0,
-        "gold": 50,         # Dipermudah: Emas awal lebih banyak
+        "gold": 50,         
         "weapon": "Tangan Kosong",
-        "inventory": ["Potion", "Potion", "Potion"] # Dipermudah: Potion awal 3
+        "inventory": ["Potion", "Potion", "Potion"] 
     }
 
 if "screen" not in st.session_state:
@@ -119,57 +120,71 @@ if "enemy" not in st.session_state:
 player = st.session_state.player
 
 # =========================
-# DATA CONFIG (EXPANDED TOKENS)
+# SAVE & LOAD SYSTEM (ENCRYPTED BASE64)
+# =========================
+def generate_save_code():
+    try:
+        json_str = json.dumps(st.session_state.player)
+        b64_code = base64.b64encode(json_str.encode()).decode()
+        return b64_code
+    except Exception as e:
+        return ""
+
+def load_save_code(code_string):
+    try:
+        decoded_bytes = base64.b64decode(code_string.strip().encode())
+        loaded_data = json.loads(decoded_bytes.decode())
+        
+        # Validasi struktur sebelum load data
+        required_keys = ["name", "hp", "max_hp", "level", "exp", "gold", "weapon", "inventory"]
+        if all(key in loaded_data for key in required_keys):
+            st.session_state.player = loaded_data
+            st.session_state.enemy = None
+            st.session_state.screen = "game"
+            play_sound("success")
+            st.success("💾 Data Petualangan Berhasil Dimuat!")
+            st.rerun()
+        else:
+            st.error("Sandi Save Game tidak valid / rusak!")
+    except Exception as e:
+        st.error("Gagal membaca kode Save Game. Pastikan kode yang dimasukkan benar!")
+
+# =========================
+# DATA CONFIG
 # =========================
 weapons = {
     "Tangan Kosong": (5, 12),
     "Pedang Kayu": (15, 25),
     "Pedang Besi": (35, 55),
     "Pedang Legendaris": (65, 95),
-    "Tombak Langit 🔱": (110, 160),     # Senjata Baru lategame
-    "Pedang Kosmik 🌌": (210, 310)     # Senjata Baru endgame
+    "Tombak Langit 🔱": (110, 160),     
+    "Pedang Kosmik 🌌": (210, 310)     
 }
 
-# Pembagian Monster berdasarkan Zona kesulitan (Lebih Banyak Wilayah)
 zone_monsters = {
-    "forest": [
-        ("Slime 💧", 20, 2, 5),
-        ("Goblin 👺", 35, 4, 8)
-    ],
-    "cave": [
-        ("Zombie 🧟", 55, 6, 12),
-        ("Skeleton 💀", 80, 10, 18)
-    ],
-    "desert": [
-        ("Sand Worm 🪱", 110, 14, 22),
-        ("Mummy 🧻", 140, 18, 28)
-    ],
-    "castle": [
-        ("Orc Berserker 🧌", 180, 22, 35),
-        ("Dark Knight ♞", 230, 26, 42)
-    ],
-    "hell": [
-        ("Fire Demon 👹", 300, 35, 55),
-        ("Necromancer 🧙‍♂️", 380, 40, 65)
-    ]
+    "forest": [("Slime 💧", 20, 2, 5), ("Goblin 👺", 35, 4, 8)],
+    "cave": [("Zombie 🧟", 55, 6, 12), ("Skeleton 💀", 80, 10, 18)],
+    "desert": [("Sand Worm 🪱", 110, 14, 22), ("Mummy 🧻", 140, 18, 28)],
+    "castle": [("Orc Berserker 🧌", 180, 22, 35), ("Dark Knight ♞", 230, 26, 42)],
+    "hell": [("Fire Demon 👹", 300, 35, 55), ("Necromancer 🧙‍♂️", 380, 40, 65)]
 }
 
 bosses = [
     ("Demon King 👑", 450, 45, 70),
     ("Ancient Dragon 🐉", 650, 55, 90),
     ("Cthulhu 🐙", 1000, 75, 120),
-    ("The Void Creator 🌌", 1500, 95, 150) # Ultimate Overlord Boss
+    ("The Void Creator 🌌", 1500, 95, 150) 
 ]
 
 # =========================
 # GAME FUNCTIONS
 # =========================
 def level_up():
-    need = player["level"] * 120 # Kurva level progresif panjang
+    need = player["level"] * 120 
     if player["exp"] >= need:
         player["exp"] -= need
         player["level"] += 1
-        player["max_hp"] += 50   # Dipermudah: Pertumbuhan stat hero sangat besar
+        player["max_hp"] += 50   
         player["hp"] = player["max_hp"]
         play_sound("success")
         st.toast(f"⚡ LEVEL UP! Sekarang kamu Level {player['level']}!", icon="🎉")
@@ -189,8 +204,6 @@ def reset_game():
 
 def spawn_enemy(zone):
     scale = player["level"]
-    
-    # Peluang memicu pertarungan Boss di zona berbahaya (Castle & Hell)
     if zone in ["castle", "hell"] and random.random() < 0.35:
         name, hp, mn, mx = random.choice(bosses)
         play_sound("attack")
@@ -200,7 +213,6 @@ def spawn_enemy(zone):
         play_sound("attack")
         st.toast(f"Kamu dihadang oleh {name}!", icon="⚔️")
 
-    # Kalkulasi stat musuh + scaling yang diperlambat agar game tetap MUDAH
     st.session_state.enemy = {
         "name": name,
         "hp": hp + (scale * 12),       
@@ -213,15 +225,13 @@ def attack():
     play_sound("attack")
     enemy = st.session_state.enemy
 
-    # Serangan Hero
     dmg = random.randint(*weapons[player["weapon"]])
     enemy["hp"] -= dmg
     st.chat_message("user", avatar="⚔️").write(f"Kamu menebas **{enemy['name']}** sebesar **{dmg} DMG**!")
 
-    # Musuh Mati
     if enemy["hp"] <= 0:
-        gold = random.randint(40, 90) + (player["level"] * 12) # Dapat bonus mas berlimpah
-        exp = random.randint(50, 110) + (player["level"] * 15) # Cepat naik level
+        gold = random.randint(40, 90) + (player["level"] * 12) 
+        exp = random.randint(50, 110) + (player["level"] * 15) 
 
         player["gold"] += gold
         player["exp"] += exp
@@ -233,12 +243,10 @@ def attack():
         level_up()
         return
 
-    # Serangan Balasan Musuh
     enemy_dmg = random.randint(enemy["min"], enemy["max"])
     player["hp"] -= enemy_dmg
     st.chat_message("assistant", avatar="👹").write(f"**{enemy['name']}** menyerang balik! Kamu terkena **{enemy_dmg} DMG**!")
 
-    # Player Mati
     if player["hp"] <= 0:
         play_sound("gameover")
         st.error("💀 Pandanganmu menggelap... Kamu tewas dalam pertempuran. GAME OVER!")
@@ -248,7 +256,7 @@ def heal():
     if "Potion" in player["inventory"]:
         play_sound("heal")
         player["inventory"].remove("Potion")
-        heal_amt = 80 # Buff Potion agar seimbang di level tinggi
+        heal_amt = 80 
         player["hp"] = min(player["max_hp"], player["hp"] + heal_amt)
         st.toast(f"🧪 Meneguk Potion! HP pulih +{heal_amt}", icon="❤️")
     else:
@@ -286,17 +294,25 @@ if st.session_state.screen == "menu":
             player["name"] = name if name.strip() != "" else "Hero"
             st.session_state.screen = "game"
             st.rerun()
+            
+        st.markdown("---")
+        st.markdown("### 📜 LANJUTKAN PETUALANGAN (LOAD)")
+        load_code = st.text_area("Tempel Sandi Save Game kamu di sini:")
+        if st.button("📂 MUAT PROGRESS GAME"):
+            if load_code.strip() != "":
+                load_save_code(load_code)
+            else:
+                st.warning("Masukkan kodenya terlebih dahulu!")
 
 # =========================
-# SCREEN: GAMEPLAY (3 KOLOM FULL LAYAR KESAMPING)
+# SCREEN: GAMEPLAY (3 KOLOM)
 # =========================
 elif st.session_state.screen == "game":
 
-    # Struktur Grid Tiga Kolom Menyamping Penuh
     col_status, col_action, col_enemy = st.columns([3, 5, 4])
 
     # ----------------------------------------
-    # KOLOM 1: STATUS PLAYER (KIRI)
+    # KOLOM 1: STATUS PLAYER & SAVE SYSTEM (KIRI)
     # ----------------------------------------
     with col_status:
         st.markdown("### 🛡️ KARTU STATUS HERO")
@@ -309,12 +325,11 @@ elif st.session_state.screen == "game":
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # HP Bar
+        # Bar Status
         hp_pct = max(0.0, min(1.0, player["hp"] / player["max_hp"]))
         st.write(f"❤️ **HP Kamu:** {player['hp']} / {player['max_hp']}")
         st.progress(hp_pct)
         
-        # EXP Bar
         need_exp = player["level"] * 120
         exp_pct = max(0.0, min(1.0, player["exp"] / need_exp))
         st.write(f"⭐ **Level {player['level']}** | **EXP:** {player['exp']} / {need_exp}")
@@ -323,13 +338,27 @@ elif st.session_state.screen == "game":
         st.markdown("---")
         st.metric("💰 Kantong Emas (Gold)", f"{player['gold']} g")
         
-        # Inventory Display
         st.markdown("### 🎒 KANTONG BARANG")
         potions_count = player["inventory"].count("Potion")
         st.write(f"- 🧪 **Ramuan Potion:** {potions_count} buah")
         if len(player["inventory"]) > potions_count:
             other_items = [i for i in player["inventory"] if i != "Potion"]
             st.write(f"- 📦 **Barang Lain:** {', '.join(other_items)}")
+            
+        # --- FITUR MENU SAVE GAME ---
+        st.markdown("---")
+        with st.expander("💾 MENU SAVE / LOAD GAME", expanded=False):
+            st.markdown("*Salin baris kode di bawah ini untuk mengamankan data heromu, atau tempel kode lama untuk memuat data.*")
+            
+            # Generate sandi save terbaru secara real-time
+            current_save = generate_save_code()
+            st.text_area("📋 Salin Kode Save Kamu:", value=current_save, height=70, help="Simpan teks ini di Notepad HP/PC Anda.")
+            
+            st.markdown("---")
+            input_code = st.text_area("📥 Tempel Kode Save Lain:")
+            if st.button("🔄 Muat Game Tambahan"):
+                if input_code.strip() != "":
+                    load_save_code(input_code)
 
     # ----------------------------------------
     # KOLOM 2: JELAJAH & AKSI TOKO (TENGAH)
@@ -364,10 +393,8 @@ elif st.session_state.screen == "game":
                 reset_game()
                 st.rerun()
 
-        # TOKO SENJATA & BARANG (LEBIH BANYAK VARIASI)
         with st.container(border=True):
             st.markdown("### 🛒 TOKO PERLENGKAPAN KERAJAAN")
-            
             col_shop1, col_shop2 = st.columns(2)
             with col_shop1:
                 if st.button("🧪 Beli Potion (💰 20 Gold)"): buy_item("Potion", 20, is_potion=True)
@@ -387,7 +414,6 @@ elif st.session_state.screen == "game":
 
         if enemy:
             enemy_hp_pct = max(0.0, min(1.0, enemy["hp"] / enemy["max_hp"]))
-            
             st.markdown(f"""
             <div class='enemy-card'>
                 <h2 style='color:#ff4b4b; margin:0;'>{enemy['name']}</h2>
@@ -398,4 +424,4 @@ elif st.session_state.screen == "game":
             st.markdown("<br>", unsafe_allow_html=True)
             st.progress(enemy_hp_pct)
         else:
-            st.info("Suasana aman terkendali. Silakan tentukan lokasi eksplorasi di kolom tengah untuk memburu musuh!")
+            st.info("Suasana aman terkendali. Silakan tentukan lokasi eksplorasi di kolom tengah untuk memburu monster!")
