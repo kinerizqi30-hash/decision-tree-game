@@ -1,46 +1,10 @@
 import streamlit as st
 import random
-import base64
 
 # =========================
 # CONFIG
 # =========================
-st.set_page_config(page_title="RPG LEGEND", page_icon="⚔️", layout="wide")
-
-# =========================
-# THEME CSS (RPG STYLE)
-# =========================
-st.markdown("""
-<style>
-body {
-    background-color: #0f0f1a;
-    color: white;
-}
-
-.big-title {
-    font-size: 40px;
-    text-align: center;
-    font-weight: bold;
-    color: #f5c542;
-    text-shadow: 2px 2px 10px black;
-}
-
-.card {
-    background: rgba(255,255,255,0.05);
-    padding: 15px;
-    border-radius: 15px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.6);
-}
-
-button {
-    border-radius: 10px !important;
-    transition: 0.2s;
-}
-button:hover {
-    transform: scale(1.05);
-}
-</style>
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="RPG LEGEND AAA", page_icon="⚔️", layout="wide")
 
 # =========================
 # SOUND CLICK
@@ -54,11 +18,8 @@ def play_sound():
     """, unsafe_allow_html=True)
 
 # =========================
-# SESSION STATE
+# INIT PLAYER
 # =========================
-if "screen" not in st.session_state:
-    st.session_state.screen = "menu"
-
 if "player" not in st.session_state:
     st.session_state.player = {
         "name": "Hero",
@@ -77,39 +38,8 @@ if "enemy" not in st.session_state:
 player = st.session_state.player
 
 # =========================
-# MONSTER DATA + REAL IMAGE
+# WEAPONS
 # =========================
-monsters = [
-    {
-        "name": "Slime",
-        "hp": 25,
-        "min": 2,
-        "max": 5,
-        "img": "https://images.unsplash.com/photo-1618331833071-1d1c7b2f5c9b"
-    },
-    {
-        "name": "Goblin",
-        "hp": 40,
-        "min": 5,
-        "max": 10,
-        "img": "https://images.unsplash.com/photo-1608889175123-1c6f7d2b3f3c"
-    },
-    {
-        "name": "Zombie",
-        "hp": 55,
-        "min": 8,
-        "max": 14,
-        "img": "https://images.unsplash.com/photo-1608889175678-9b1a7d2c1a11"
-    },
-    {
-        "name": "Demon Knight",
-        "hp": 140,
-        "min": 18,
-        "max": 28,
-        "img": "https://images.unsplash.com/photo-1620121684840-edffcfc4d2d5"
-    }
-]
-
 weapons = {
     "Tangan Kosong": (3, 7),
     "Pedang Kayu": (8, 14),
@@ -118,96 +48,164 @@ weapons = {
 }
 
 # =========================
-# FUNCTIONS
+# MONSTER BASE (difficulty scaling)
 # =========================
-def rand(a, b):
-    return random.randint(a, b)
+monsters = [
+    ("Slime", 20, 5, 8),
+    ("Goblin", 35, 8, 12),
+    ("Zombie", 50, 10, 15),
+    ("Orc", 70, 12, 18),
+    ("Skeleton", 90, 15, 22),
+    ("Dark Knight", 130, 18, 28),
+    ("Demon King", 180, 22, 35)
+]
 
-def start_battle():
-    m = random.choice(monsters)
+# =========================
+# LEVEL SYSTEM
+# =========================
+def level_up():
+    while player["exp"] >= player["level"] * 100:
+        player["exp"] -= player["level"] * 100
+        player["level"] += 1
+        player["max_hp"] += 20
+        player["hp"] = player["max_hp"]
+        st.success(f"LEVEL UP! Now Level {player['level']} ⚡")
+
+# =========================
+# MONSTER GENERATOR (scaled)
+# =========================
+def spawn_enemy():
+    name, hp, mn, mx = random.choice(monsters)
+
+    scale = player["level"]
+
     st.session_state.enemy = {
-        "name": m["name"],
-        "hp": m["hp"] + player["level"] * 5,
-        "min": m["min"],
-        "max": m["max"],
-        "img": m["img"]
+        "name": name,
+        "hp": hp + scale * 15,
+        "min": mn + scale,
+        "max": mx + scale * 2
     }
 
+# =========================
+# RESET GAME (GAME OVER AUTO)
+# =========================
+def reset_game():
+    player.update({
+        "hp": 100,
+        "max_hp": 100,
+        "level": 1,
+        "exp": 0,
+        "gold": 0,
+        "weapon": "Tangan Kosong",
+        "inventory": ["Potion"]
+    })
+    st.session_state.enemy = None
+
+# =========================
+# ATTACK SYSTEM
+# =========================
 def attack():
     play_sound()
     enemy = st.session_state.enemy
-    dmg = rand(*weapons[player["weapon"]])
 
+    dmg = random.randint(*weapons[player["weapon"]])
     enemy["hp"] -= dmg
 
+    st.success(f"You deal {dmg} damage!")
+
+    # enemy dead
     if enemy["hp"] <= 0:
-        player["gold"] += rand(20, 50)
-        player["exp"] += 30
+        reward_gold = random.randint(20, 60)
+        reward_exp = random.randint(30, 60)
+
+        player["gold"] += reward_gold
+        player["exp"] += reward_exp
+
+        st.success(f"Enemy defeated! +{reward_gold} gold +{reward_exp} exp")
+
         st.session_state.enemy = None
-        st.success("Monster defeated!")
+        level_up()
+        return
+
+    # enemy attack
+    enemy_dmg = random.randint(enemy["min"], enemy["max"])
+    player["hp"] -= enemy_dmg
+
+    st.error(f"Enemy hit you for {enemy_dmg}")
+
+    # GAME OVER AUTO RESET
+    if player["hp"] <= 0:
+        st.error("💀 GAME OVER - Respawning...")
+        reset_game()
+
+# =========================
+# HEAL
+# =========================
+def heal():
+    play_sound()
+    if "Potion" in player["inventory"]:
+        player["inventory"].remove("Potion")
+        heal_amount = random.randint(25, 50)
+        player["hp"] = min(player["max_hp"], player["hp"] + heal_amount)
+        st.success(f"Healed +{heal_amount} HP")
     else:
-        player["hp"] -= rand(enemy["min"], enemy["max"])
-
-        if player["hp"] <= 0:
-            player["hp"] = 100
-            player["gold"] = 0
-            player["exp"] = 0
-            st.session_state.enemy = None
-            st.error("GAME OVER - Respawn!")
+        st.warning("No Potion!")
 
 # =========================
-# UI
+# UI HEADER
 # =========================
-st.markdown("<div class='big-title'>⚔️ RPG LEGEND ULTIMATE</div>", unsafe_allow_html=True)
+st.title("⚔️ RPG LEGEND - AAA UPGRADE")
 
 # =========================
-# MENU
+# CHARACTER SETUP
 # =========================
-if st.session_state.screen == "menu":
-    name = st.text_input("Masukkan nama karakter:", "Hero")
-    player["name"] = name
+if "setup" not in st.session_state:
+    st.session_state.setup = True
 
-    if st.button("▶ START GAME"):
+if st.session_state.setup:
+    name = st.text_input("Enter Character Name", player["name"])
+    if st.button("START ADVENTURE"):
+        player["name"] = name
+        st.session_state.setup = False
         play_sound()
-        st.session_state.screen = "game"
 
 # =========================
-# GAME
+# GAME UI
 # =========================
-elif st.session_state.screen == "game":
+if not st.session_state.setup:
 
-    # SIDEBAR HUD
-    st.sidebar.markdown("## 🎮 STATUS")
+    # HUD
+    st.sidebar.title("🎮 STATUS")
     st.sidebar.write("👤", player["name"])
-    st.sidebar.write("❤️ HP:", player["hp"])
+    st.sidebar.write("❤️ HP:", player["hp"], "/", player["max_hp"])
     st.sidebar.write("⭐ Level:", player["level"])
+    st.sidebar.write("📊 EXP:", player["exp"])
     st.sidebar.write("💰 Gold:", player["gold"])
     st.sidebar.write("⚔️ Weapon:", player["weapon"])
 
-    if st.button("🌲 HUNT MONSTER"):
-        start_battle()
+    # ACTIONS
+    col1, col2, col3 = st.columns(3)
 
-    enemy = st.session_state.enemy
+    with col1:
+        if st.button("🌲 Hunt Monster"):
+            spawn_enemy()
 
-    # =========================
-    # BATTLE UI
-    # =========================
-    if enemy:
-        st.markdown("## 👹 BATTLE")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.image(enemy["img"], width=300)
-
-        with col2:
-            st.markdown(f"### {enemy['name']}")
-            st.write("HP:", enemy["hp"])
-
-            if st.button("⚔️ ATTACK"):
+    with col2:
+        if st.button("⚔️ Attack"):
+            if st.session_state.enemy:
                 attack()
 
-            if st.button("🧪 HEAL"):
-                play_sound()
-                player["hp"] += 20
-                st.success("Healed +20 HP")
+    with col3:
+        if st.button("🧪 Heal"):
+            heal()
+
+    # ENEMY DISPLAY
+    enemy = st.session_state.enemy
+
+    if enemy:
+        st.subheader("👹 ENEMY")
+        st.write("Name:", enemy["name"])
+        st.write("HP:", enemy["hp"])
+
+    else:
+        st.info("No enemy. Go hunt!")
