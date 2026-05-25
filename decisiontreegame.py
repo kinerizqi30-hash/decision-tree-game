@@ -7,13 +7,25 @@ import random
 st.set_page_config(page_title="RPG LEGEND ULTIMATE", page_icon="⚔️", layout="wide")
 
 # =========================
-# SOUND CLICK (Fix & Cleaned)
+# SOUND EFFECTS SYSTEM
 # =========================
-def play_sound():
-    sound = "UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
+def play_sound(action_type):
+    """Memutar efek suara retro berbasis 8-bit WAV data URI"""
+    sounds = {
+        # Suara tebasan / serang
+        "attack": "UklGRlQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YVB9AEX/Rf9F/0X/Rf9F/0V/RX9Ff0V/RYBFgEWARUBFQEVCRUJFQkVDRENEQ0RDRENFQUVBRUFFQUZCRkJGQkZCRkNHQ0dDR0NHQ0hDSERIREREREVFRUVFRUVFRUZGRkZGRkZGRkc=",
+        # Suara meminum ramuan / heal
+        "heal": "UklGRpAAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YVAAAABAAEAAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB",
+        # Suara sukses / beli senjata / level up
+        "success": "UklGRlQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YVB9AHV1dXV1dXV2dnZ2dnZ2dnd3d3d3d3d3enh4eHR0dHR0dHR1dXV1dXV1dXZ2dnZ2dnZ2d3d3d3d3d3d6eHh4eHh4eHh5eXl5eXl5eXl6enp6enp6enp7e3t7e3t7e3t8fHx4eHg=",
+        # Suara kalah / game over
+        "gameover": "UklGRlQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YVB9AEX/Rf9F/0X/Rf9F/0X/Rf9F/0X/Zf9l/2X/Zf9l/2V/ZX9l/2X/Zf9l/2X/Zf9l/2X/Zf9l/2X/Zf9l/2X/Zf9l/2X/Zf9l/2X/Zf9l/2X/Zf9l/2X/Zf9l/2X/Zf9l/2X/Zf9l/2X/Zf9l/2X/Zf9l/0X/"
+    }
+    
+    sound_data = sounds.get(action_type, sounds["attack"])
     st.markdown(f"""
     <audio autoplay style="display:none;">
-        <source src="data:audio/wav;base64,{sound}" type="audio/wav">
+        <source src="data:audio/wav;base64,{sound_data}" type="audio/wav">
     </audio>
     """, unsafe_allow_html=True)
 
@@ -22,7 +34,6 @@ def play_sound():
 # =========================
 st.markdown("""
 <style>
-/* Mengubah font global dan background game */
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;900&family=Poppins:wght@400;600&display=swap');
 
 html, body, [data-testid="stAppViewContainer"] {
@@ -30,7 +41,6 @@ html, body, [data-testid="stAppViewContainer"] {
     font-family: 'Poppins', sans-serif;
 }
 
-/* Judul Utama ala Game RPG */
 .title {
     font-family: 'Cinzel', serif;
     font-size: 45px;
@@ -42,7 +52,6 @@ html, body, [data-testid="stAppViewContainer"] {
     letter-spacing: 2px;
 }
 
-/* Modifikasi Tombol Streamlit agar lebih interaktif */
 .stButton>button {
     width: 100% !important;
     background: linear-gradient(135deg, #1f2336 0%, #161926 100%) !important;
@@ -63,17 +72,13 @@ html, body, [data-testid="stAppViewContainer"] {
     box-shadow: 0px 6px 15px rgba(255, 153, 0, 0.4) !important;
 }
 
-/* Tombol Khusus Aksi Vital (Attack & Restart) */
 div[data-testid="column"]:nth-of-type(1) .stButton>button {
-    /* Tombol Attack */
     border-left: 4px solid #ff4b4b !important;
 }
 div[data-testid="column"]:nth-of-type(3) .stButton>button {
-    /* Tombol Restart */
     border-left: 4px solid #6e7687 !important;
 }
 
-/* Desain Card Status Musuh */
 .enemy-card {
     background: linear-gradient(135deg, #2b1414 0%, #1c0b0b 100%);
     border: 2px solid #ff4b4b;
@@ -92,13 +97,13 @@ div[data-testid="column"]:nth-of-type(3) .stButton>button {
 if "player" not in st.session_state:
     st.session_state.player = {
         "name": "Hero",
-        "hp": 100,
-        "max_hp": 100,
+        "hp": 120,          # Dipermudah: HP awal lebih tinggi
+        "max_hp": 120,
         "level": 1,
         "exp": 0,
-        "gold": 0,
+        "gold": 30,         # Dipermudah: Modal awal 30 gold
         "weapon": "Tangan Kosong",
-        "inventory": ["Potion", "Potion"]
+        "inventory": ["Potion", "Potion"] # Dipermudah: Potion awal ada 2
     }
 
 if "screen" not in st.session_state:
@@ -110,27 +115,27 @@ if "enemy" not in st.session_state:
 player = st.session_state.player
 
 # =========================
-# DATA CONFIG (Weapons & Monsters)
+# DATA CONFIG (BUFFED / EASIER)
 # =========================
 weapons = {
-    "Tangan Kosong": (3, 7),
-    "Pedang Kayu": (8, 14),
-    "Pedang Besi": (15, 22),
-    "Pedang Legendaris": (25, 40)
+    "Tangan Kosong": (5, 12),       # Dipermudah: Sebelumnya (3, 7)
+    "Pedang Kayu": (15, 25),        # Dipermudah: Sebelumnya (8, 14)
+    "Pedang Besi": (30, 45),        # Dipermudah: Sebelumnya (15, 22)
+    "Pedang Legendaris": (55, 85)   # Dipermudah: Sebelumnya (25, 40)
 }
 
 monsters = [
-    ("Slime 💧", 20, 5, 8),
-    ("Goblin 👺", 35, 8, 12),
-    ("Zombie 🧟", 55, 10, 15),
-    ("Orc 🧌", 80, 12, 18),
-    ("Skeleton 💀", 100, 15, 22),
-    ("Dark Knight ♞", 140, 18, 28),
+    ("Slime 💧", 15, 2, 5),          # Dipermudah: HP & DMG Musuh diturunkan
+    ("Goblin 👺", 25, 4, 8),
+    ("Zombie 🧟", 40, 6, 11),
+    ("Orc 🧌", 60, 8, 14),
+    ("Skeleton 💀", 80, 10, 16),
+    ("Dark Knight ♞", 110, 12, 20),
 ]
 
 bosses = [
-    ("Demon King 👑", 250, 25, 40),
-    ("Ancient Dragon 🐉", 300, 30, 50)
+    ("Demon King 👑", 180, 18, 30),
+    ("Ancient Dragon 🐉", 230, 22, 38)
 ]
 
 # =========================
@@ -141,82 +146,92 @@ def level_up():
     if player["exp"] >= need:
         player["exp"] -= need
         player["level"] += 1
-        player["max_hp"] += 25
+        player["max_hp"] += 40       # Dipermudah: Naik HP lebih besar (sebelumnya 25)
         player["hp"] = player["max_hp"]
+        play_sound("success")
         st.toast(f"⚡ LEVEL UP! Sekarang kamu Level {player['level']}!", icon="🎉")
 
 def reset_game():
     player.update({
-        "hp": 100,
-        "max_hp": 100,
+        "hp": 120,
+        "max_hp": 120,
         "level": 1,
         "exp": 0,
-        "gold": 0,
+        "gold": 30,
         "weapon": "Tangan Kosong",
-        "inventory": ["Potion"]
+        "inventory": ["Potion", "Potion"]
     })
     st.session_state.enemy = None
     st.session_state.screen = "menu"
 
 def spawn_enemy(zone):
     scale = player["level"]
+    # Pengali skala dipelankan agar musuh tidak langsung menjadi terlalu kuat
     if zone == "castle" and random.random() < 0.3:
         name, hp, mn, mx = random.choice(bosses)
+        play_sound("attack")
         st.toast("⚠️ BOSS RAMPAGING!", icon="🚨")
     else:
         name, hp, mn, mx = random.choice(monsters)
+        play_sound("attack")
         st.toast(f"Seekor {name} menghadang jalanmu!", icon="⚔️")
 
     st.session_state.enemy = {
         "name": name,
-        "hp": hp + scale * 20,
-        "max_hp": hp + scale * 20,
-        "min": mn + scale,
-        "max": mx + scale * 2
+        "hp": hp + scale * 10,       # Dipermudah: Skala HP musuh dikurangi setengah
+        "max_hp": hp + scale * 10,
+        "min": mn + max(1, int(scale * 0.5)),
+        "max": mx + scale
     }
 
 def attack():
-    play_sound()
+    play_sound("attack")
     enemy = st.session_state.enemy
 
+    # Serangan Hero
     dmg = random.randint(*weapons[player["weapon"]])
     enemy["hp"] -= dmg
     st.chat_message("user", avatar="⚔️").write(f"Kamu menyerang **{enemy['name']}** sebesar **{dmg} DMG**!")
 
+    # Jika musuh mati
     if enemy["hp"] <= 0:
-        gold = random.randint(30, 80)
-        exp = random.randint(40, 90)
+        gold = random.randint(50, 100) # Dipermudah: Dapat emas lebih banyak
+        exp = random.randint(60, 120)  # Dipermudah: Dapat EXP lebih banyak
 
         player["gold"] += gold
         player["exp"] += exp
 
+        play_sound("success")
         st.balloons()
         st.success(f"🎉 **{enemy['name']}** Telah Dikalahkan! Kamu mendapatkan **+{gold} 💰 Gold** & **+{exp} ⭐ EXP**.")
         st.session_state.enemy = None
         level_up()
         return
 
+    # Serangan Musuh Balik
     enemy_dmg = random.randint(enemy["min"], enemy["max"])
     player["hp"] -= enemy_dmg
-    st.chat_message("assistant", avatar="👹").write(f"**{enemy['name']}** mencakar kamu sebesar **{enemy_dmg} DMG**!")
+    st.chat_message("assistant", avatar="👹").write(f"**{enemy['name']}** menyerang kamu sebesar **{enemy_dmg} DMG**!")
 
+    # Jika Hero mati
     if player["hp"] <= 0:
+        play_sound("gameover")
         st.error("💀 Kamu telah gugur di medan perang... GAME OVER!")
         reset_game()
 
 def heal():
-    play_sound()
     if "Potion" in player["inventory"]:
+        play_sound("heal")
         player["inventory"].remove("Potion")
-        heal_amt = 40
+        heal_amt = 60 # Dipermudah: Pemuilhan HP naik dari 40 ke 60
         player["hp"] = min(player["max_hp"], player["hp"] + heal_amt)
         st.toast(f"🧪 Meminum Potion! Pulih +{heal_amt} HP", icon="❤️")
     else:
         st.warning("Kamu tidak punya Potion tersisa!")
 
 def buy_weapon(name, price):
-    play_sound()
     if player["gold"] >= price:
+        play_sound("success")
         player["gold"] -= price
         player["weapon"] = name
         st.success(f"⚔️ Berhasil membeli **{name}**!")
@@ -238,7 +253,7 @@ if st.session_state.screen == "menu":
     with col_center:
         name = st.text_input("🛡️ Berikan Nama Heromu:", player["name"])
         if st.button("▶ MEMULAI PETUALANGAN"):
-            play_sound()
+            play_sound("success")
             player["name"] = name if name.strip() != "" else "Hero"
             st.session_state.screen = "game"
             st.rerun()
@@ -293,7 +308,6 @@ elif st.session_state.screen == "game":
         st.markdown("### 🎮 AKSI PERTEMPURAN")
         col_a1, col_a2, col_a3 = st.columns(3)
         with col_a1:
-            # Di-disable jika musuh tidak ada
             disable_attack = False if st.session_state.enemy else True
             if st.button("⚔️ Serang Musuh", disabled=disable_attack):
                 attack()
@@ -302,6 +316,7 @@ elif st.session_state.screen == "game":
                 heal()
         with col_a3:
             if st.button("💾 Mulai Ulang (Reset)"):
+                play_sound("gameover")
                 reset_game()
                 st.rerun()
 
@@ -316,25 +331,4 @@ elif st.session_state.screen == "game":
             with col_s2:
                 if st.button("Pedang Besi\n(💰 120 Gold)"): buy_weapon("Pedang Besi", 120)
             with col_s3:
-                if st.button("Pedang Legendaris\n(💰 300 Gold)"): buy_weapon("Pedang Legendaris", 300)
-
-    # --- MUSUH / ENEMY DISPLAY SIDE ---
-    with side_col:
-        st.markdown("### 👁️ AREA MUSUH")
-        enemy = st.session_state.enemy
-
-        if enemy:
-            # HTML Card Custom untuk status musuh yang mencolok
-            enemy_hp_pct = max(0.0, min(1.0, enemy["hp"] / enemy["max_hp"]))
-            
-            st.markdown(f"""
-            <div class='enemy-card'>
-                <h2 style='color:#ff4b4b; margin:0;'>👹 {enemy['name']}</h2>
-                <p style='color:#ccc; font-size:14px; margin:5px 0 15px 0;'>DMG: {enemy['min']} - {enemy['max']}</p>
-                <h3 style='color:white; margin:0;'>HP: {enemy['hp']} / {enemy['max_hp']}</h3>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.progress(enemy_hp_pct)
-        else:
-            st.info("Keadaan aman terendali. Silakan pilih lokasi eksplorasi di sebelah kiri untuk mencari musuh!")
+                if st.button("Pedang Legendaris\n
