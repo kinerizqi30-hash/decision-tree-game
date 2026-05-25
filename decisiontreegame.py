@@ -4,7 +4,7 @@ import random
 # =========================
 # CONFIG
 # =========================
-st.set_page_config(page_title="RPG LEGEND AAA", page_icon="⚔️", layout="wide")
+st.set_page_config(page_title="RPG LEGEND ULTIMATE", page_icon="⚔️", layout="wide")
 
 # =========================
 # SOUND CLICK
@@ -16,6 +16,30 @@ def play_sound():
         <source src="data:audio/wav;base64,{sound}" type="audio/wav">
     </audio>
     """, unsafe_allow_html=True)
+
+# =========================
+# STYLE UI
+# =========================
+st.markdown("""
+<style>
+body {background:#0e0f1a; color:white;}
+.title {
+    font-size:40px;
+    text-align:center;
+    color:#ffd700;
+    font-weight:bold;
+}
+.card {
+    background:rgba(255,255,255,0.05);
+    padding:15px;
+    border-radius:15px;
+    margin:10px 0;
+}
+button {
+    border-radius:12px !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # =========================
 # INIT PLAYER
@@ -31,6 +55,9 @@ if "player" not in st.session_state:
         "weapon": "Tangan Kosong",
         "inventory": ["Potion"]
     }
+
+if "screen" not in st.session_state:
+    st.session_state.screen = "menu"
 
 if "enemy" not in st.session_state:
     st.session_state.enemy = None
@@ -48,46 +75,36 @@ weapons = {
 }
 
 # =========================
-# MONSTER BASE (difficulty scaling)
+# MONSTERS (scaling world)
 # =========================
 monsters = [
     ("Slime", 20, 5, 8),
     ("Goblin", 35, 8, 12),
-    ("Zombie", 50, 10, 15),
-    ("Orc", 70, 12, 18),
-    ("Skeleton", 90, 15, 22),
-    ("Dark Knight", 130, 18, 28),
-    ("Demon King", 180, 22, 35)
+    ("Zombie", 55, 10, 15),
+    ("Orc", 80, 12, 18),
+    ("Skeleton", 100, 15, 22),
+    ("Dark Knight", 140, 18, 28),
+]
+
+bosses = [
+    ("Demon King", 250, 25, 40),
+    ("Ancient Dragon", 300, 30, 50)
 ]
 
 # =========================
 # LEVEL SYSTEM
 # =========================
 def level_up():
-    while player["exp"] >= player["level"] * 100:
-        player["exp"] -= player["level"] * 100
+    need = player["level"] * 100
+    if player["exp"] >= need:
+        player["exp"] -= need
         player["level"] += 1
-        player["max_hp"] += 20
+        player["max_hp"] += 25
         player["hp"] = player["max_hp"]
-        st.success(f"LEVEL UP! Now Level {player['level']} ⚡")
+        st.success("⚡ LEVEL UP!")
 
 # =========================
-# MONSTER GENERATOR (scaled)
-# =========================
-def spawn_enemy():
-    name, hp, mn, mx = random.choice(monsters)
-
-    scale = player["level"]
-
-    st.session_state.enemy = {
-        "name": name,
-        "hp": hp + scale * 15,
-        "min": mn + scale,
-        "max": mx + scale * 2
-    }
-
-# =========================
-# RESET GAME (GAME OVER AUTO)
+# RESET GAME
 # =========================
 def reset_game():
     player.update({
@@ -100,6 +117,25 @@ def reset_game():
         "inventory": ["Potion"]
     })
     st.session_state.enemy = None
+    st.session_state.screen = "menu"
+
+# =========================
+# SPAWN ENEMY (difficulty scaling)
+# =========================
+def spawn_enemy(zone):
+    scale = player["level"]
+
+    if zone == "castle" and random.random() < 0.3:
+        name, hp, mn, mx = random.choice(bosses)
+    else:
+        name, hp, mn, mx = random.choice(monsters)
+
+    st.session_state.enemy = {
+        "name": name,
+        "hp": hp + scale * 20,
+        "min": mn + scale,
+        "max": mx + scale * 2
+    }
 
 # =========================
 # ATTACK SYSTEM
@@ -113,29 +149,26 @@ def attack():
 
     st.success(f"You deal {dmg} damage!")
 
-    # enemy dead
     if enemy["hp"] <= 0:
-        reward_gold = random.randint(20, 60)
-        reward_exp = random.randint(30, 60)
+        gold = random.randint(30, 80)
+        exp = random.randint(40, 90)
 
-        player["gold"] += reward_gold
-        player["exp"] += reward_exp
+        player["gold"] += gold
+        player["exp"] += exp
 
-        st.success(f"Enemy defeated! +{reward_gold} gold +{reward_exp} exp")
+        st.success(f"Enemy defeated! +{gold} gold +{exp} exp")
 
         st.session_state.enemy = None
         level_up()
         return
 
-    # enemy attack
     enemy_dmg = random.randint(enemy["min"], enemy["max"])
     player["hp"] -= enemy_dmg
 
-    st.error(f"Enemy hit you for {enemy_dmg}")
+    st.error(f"Enemy hits {enemy_dmg}")
 
-    # GAME OVER AUTO RESET
     if player["hp"] <= 0:
-        st.error("💀 GAME OVER - Respawning...")
+        st.error("💀 GAME OVER")
         reset_game()
 
 # =========================
@@ -145,34 +178,44 @@ def heal():
     play_sound()
     if "Potion" in player["inventory"]:
         player["inventory"].remove("Potion")
-        heal_amount = random.randint(25, 50)
-        player["hp"] = min(player["max_hp"], player["hp"] + heal_amount)
-        st.success(f"Healed +{heal_amount} HP")
+        player["hp"] = min(player["max_hp"], player["hp"] + 40)
+        st.success("Healed +40 HP")
     else:
-        st.warning("No Potion!")
+        st.warning("No potion!")
+
+# =========================
+# SHOP
+# =========================
+def buy_weapon(name, price):
+    play_sound()
+    if player["gold"] >= price:
+        player["gold"] -= price
+        player["weapon"] = name
+        st.success(f"Bought {name}")
+    else:
+        st.error("Not enough gold")
 
 # =========================
 # UI HEADER
 # =========================
-st.title("⚔️ RPG LEGEND - AAA UPGRADE")
+st.markdown("<div class='title'>⚔️ RPG LEGEND ULTIMATE</div>", unsafe_allow_html=True)
 
 # =========================
-# CHARACTER SETUP
+# MENU
 # =========================
-if "setup" not in st.session_state:
-    st.session_state.setup = True
+if st.session_state.screen == "menu":
 
-if st.session_state.setup:
     name = st.text_input("Enter Character Name", player["name"])
-    if st.button("START ADVENTURE"):
-        player["name"] = name
-        st.session_state.setup = False
+
+    if st.button("▶ START GAME"):
         play_sound()
+        player["name"] = name
+        st.session_state.screen = "game"
 
 # =========================
-# GAME UI
+# GAME SCREEN
 # =========================
-if not st.session_state.setup:
+elif st.session_state.screen == "game":
 
     # HUD
     st.sidebar.title("🎮 STATUS")
@@ -183,23 +226,54 @@ if not st.session_state.setup:
     st.sidebar.write("💰 Gold:", player["gold"])
     st.sidebar.write("⚔️ Weapon:", player["weapon"])
 
-    # ACTIONS
+    # WORLD
+    st.subheader("🌍 WORLD")
+
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        if st.button("🌲 Hunt Monster"):
-            spawn_enemy()
+        if st.button("🌲 Forest"):
+            spawn_enemy("forest")
 
     with col2:
+        if st.button("🕳️ Cave"):
+            spawn_enemy("cave")
+
+    with col3:
+        if st.button("🏰 Castle"):
+            spawn_enemy("castle")
+
+    # ACTIONS
+    st.subheader("🎮 ACTIONS")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
         if st.button("⚔️ Attack"):
             if st.session_state.enemy:
                 attack()
 
-    with col3:
+    with col2:
         if st.button("🧪 Heal"):
             heal()
 
-    # ENEMY DISPLAY
+    with col3:
+        if st.button("💾 Restart Game"):
+            reset_game()
+
+    # SHOP
+    st.subheader("🛒 SHOP")
+
+    if st.button("Pedang Kayu (50)"):
+        buy_weapon("Pedang Kayu", 50)
+
+    if st.button("Pedang Besi (120)"):
+        buy_weapon("Pedang Besi", 120)
+
+    if st.button("Pedang Legendaris (300)"):
+        buy_weapon("Pedang Legendaris", 300)
+
+    # ENEMY
     enemy = st.session_state.enemy
 
     if enemy:
@@ -208,4 +282,8 @@ if not st.session_state.setup:
         st.write("HP:", enemy["hp"])
 
     else:
-        st.info("No enemy. Go hunt!")
+        st.info("No enemy - explore world!")
+
+    # INVENTORY
+    st.subheader("🎒 INVENTORY")
+    st.write(player["inventory"])
