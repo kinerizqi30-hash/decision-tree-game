@@ -2,6 +2,7 @@ import streamlit as st
 import random
 import json
 import os
+import streamlit.components.v1 as components
 
 # =========================
 # CONFIG
@@ -9,7 +10,26 @@ import os
 st.set_page_config(page_title="RPG LEGEND ULTIMATE", layout="wide")
 
 # =========================
-# 🎨 CSS RPG THEME
+# SCREEN STATE
+# =========================
+if "screen" not in st.session_state:
+    st.session_state.screen = "menu"  # menu / game / how
+
+# =========================
+# 🔊 SOUND CLICK
+# =========================
+def click_sound():
+    components.html("""
+    <audio autoplay>
+        <source src="https://www.fesliyanstudios.com/play-mp3/387" type="audio/mpeg">
+    </audio>
+    """, height=0)
+
+def sfx():
+    click_sound()
+
+# =========================
+# 🎨 CSS RPG
 # =========================
 st.markdown("""
 <style>
@@ -19,16 +39,11 @@ st.markdown("""
     color: white;
 }
 
+/* Title */
 h1 {
     text-align:center;
     color:#38bdf8;
     text-shadow:0 0 20px #38bdf8;
-    animation: glow 2s infinite alternate;
-}
-
-@keyframes glow {
-    from { text-shadow: 0 0 10px #38bdf8; }
-    to { text-shadow: 0 0 25px #22d3ee; }
 }
 
 /* Button */
@@ -38,23 +53,13 @@ h1 {
     border-radius:12px;
     padding:10px;
     font-weight:bold;
-    transition:0.2s;
     border:none;
+    transition:0.2s;
 }
 
 .stButton > button:hover {
     transform: scale(1.05);
     box-shadow: 0 0 20px #22d3ee;
-}
-
-/* Sidebar */
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #111827, #0b1220);
-}
-
-/* Card */
-.block-container {
-    padding-top: 20px;
 }
 
 </style>
@@ -63,32 +68,10 @@ h1 {
 st.markdown("<h1>⚔️ RPG LEGEND ULTIMATE</h1>", unsafe_allow_html=True)
 
 # =========================
-# SOUND (optional)
-# =========================
-def play_sound(name):
-    sound_path = f"sounds/{name}.mp3"
-    if os.path.exists(sound_path):
-        st.audio(sound_path, autoplay=True)
-
-# =========================
-# LEADERBOARD
-# =========================
-LB_FILE = "leaderboard.json"
-
-def load_lb():
-    if os.path.exists(LB_FILE):
-        return json.load(open(LB_FILE))
-    return []
-
-def save_lb(data):
-    json.dump(data, open(LB_FILE,"w"))
-
-# =========================
-# SESSION STATE
+# PLAYER INIT
 # =========================
 if "player" not in st.session_state:
     st.session_state.player = {
-        "name": "Hero",
         "hp": 100,
         "max_hp": 100,
         "level": 1,
@@ -102,13 +85,10 @@ if "player" not in st.session_state:
 if "enemy" not in st.session_state:
     st.session_state.enemy = None
 
-if "map" not in st.session_state:
-    st.session_state.map = "🌲 Hutan"
-
 player = st.session_state.player
 
 # =========================
-# DATA
+# DATA GAME
 # =========================
 weapons = {
     "Tangan Kosong": (3, 7),
@@ -118,27 +98,20 @@ weapons = {
 }
 
 monsters = [
-    {"name":"Slime","hp":25,"min":2,"max":5,"level":1},
-    {"name":"Goblin","hp":40,"min":5,"max":10,"level":2},
-    {"name":"Zombie","hp":55,"min":8,"max":14,"level":3},
-    {"name":"Orc","hp":80,"min":10,"max":18,"level":4},
-    {"name":"Skeleton","hp":100,"min":14,"max":22,"level":5},
-    {"name":"Dark Knight","hp":140,"min":18,"max":28,"level":6},
+    {"name":"Slime","hp":25,"min":2,"max":5},
+    {"name":"Goblin","hp":40,"min":5,"max":10},
+    {"name":"Zombie","hp":55,"min":8,"max":14},
+    {"name":"Orc","hp":80,"min":10,"max":18},
 ]
 
-maps = ["🌲 Hutan","🕳️ Gua","🏰 Kastil","⛰️ Gunung"]
-
 # =========================
-# UTIL
+# LEVEL UP
 # =========================
-def rand(a,b):
-    return random.randint(a,b)
-
 def level_up():
     need = player["level"] * 60
     if player["exp"] >= need:
         player["level"] += 1
-        player["max_hp"] += 25
+        player["max_hp"] += 20
         player["hp"] = player["max_hp"]
         player["exp"] = 0
         player["gold"] += 50
@@ -146,73 +119,68 @@ def level_up():
         st.success("✨ LEVEL UP!")
 
 # =========================
-# ENEMY AI
+# SPAWN ENEMY
 # =========================
 def spawn_enemy():
     base = random.choice(monsters)
-
     st.session_state.enemy = {
         "name": base["name"],
         "hp": base["hp"] + player["level"] * 5,
-        "min": base["min"] + player["level"] // 2,
-        "max": base["max"] + player["level"] // 2
+        "min": base["min"] + player["level"],
+        "max": base["max"] + player["level"]
     }
 
 # =========================
-# BATTLE SYSTEM
+# ATTACK SYSTEM
 # =========================
 def attack():
     e = st.session_state.enemy
 
-    dmg = rand(*weapons[player["weapon"]])
+    dmg = random.randint(*weapons[player["weapon"]])
 
-    if rand(1,100) < 20:
+    if random.randint(1,100) < 20:
         dmg *= 2
         st.warning("💥 CRITICAL HIT!")
 
     e["hp"] -= dmg
-    st.success(f"Damage {dmg}")
+    st.success(f"Damage: {dmg}")
 
     if e["hp"] <= 0:
         st.success(f"{e['name']} defeated!")
-        player["gold"] += rand(20,50)
-        player["exp"] += rand(20,40)
+        player["gold"] += random.randint(20,50)
+        player["exp"] += random.randint(20,40)
         player["score"] += 50
 
-        if rand(1,100) < 30:
+        if random.randint(1,100) < 30:
             player["inventory"].append("Potion")
 
         level_up()
         st.session_state.enemy = None
-        play_sound("win")
         return
 
-    edmg = rand(e["min"], e["max"]) + player["level"]
-
+    edmg = random.randint(e["min"], e["max"])
     player["hp"] -= edmg
-    st.error(f"Enemy hit {edmg}")
 
-    play_sound("hit")
+    st.error(f"Enemy hit: {edmg}")
 
     if player["hp"] <= 0:
         game_over()
 
+# =========================
+# HEAL
+# =========================
 def use_potion():
     if "Potion" in player["inventory"]:
         player["inventory"].remove("Potion")
-        heal = rand(20,40)
+        heal = random.randint(20,40)
         player["hp"] = min(player["max_hp"], player["hp"] + heal)
         st.success(f"Heal +{heal}")
 
 # =========================
-# GAME OVER + SAVE SCORE
+# GAME OVER
 # =========================
 def game_over():
     st.error("💀 GAME OVER")
-
-    lb = load_lb()
-    lb.append({"score": player["score"]})
-    save_lb(lb)
 
     player.update({
         "hp":100,"max_hp":100,"level":1,"exp":0,
@@ -223,76 +191,103 @@ def game_over():
     st.session_state.enemy = None
 
 # =========================
-# SIDEBAR MAP
+# MENU
 # =========================
-st.sidebar.title("📍 MAP")
+def menu():
+    st.subheader("🎮 MENU UTAMA")
 
-choice_map = st.sidebar.radio("Lokasi", maps)
-st.session_state.map = choice_map
+    if st.button("🚀 START GAME"):
+        sfx()
+        st.session_state.screen = "game"
 
-if st.sidebar.button("🚀 Explore"):
-    spawn_enemy()
-
-# =========================
-# STATUS
-# =========================
-st.sidebar.title("👤 STATUS")
-
-st.sidebar.write(f"HP: {player['hp']}/{player['max_hp']}")
-st.sidebar.write(f"Level: {player['level']}")
-st.sidebar.write(f"EXP: {player['exp']}")
-st.sidebar.write(f"Gold: {player['gold']}")
-st.sidebar.write(f"Weapon: {player['weapon']}")
-st.sidebar.write("Inventory:", player["inventory"])
+    if st.button("📖 CARA BERMAIN"):
+        sfx()
+        st.session_state.screen = "how"
 
 # =========================
-# MAIN UI
+# HOW TO PLAY
 # =========================
-enemy = st.session_state.enemy
+def how():
+    st.subheader("📖 CARA BERMAIN")
 
-if enemy:
-    st.subheader(f"👹 {enemy['name']}")
-    st.write(f"HP Enemy: {enemy['hp']}")
+    st.write("""
+    - Klik EXPLORE untuk lawan monster  
+    - Klik ATTACK untuk menyerang  
+    - Gunakan Potion untuk heal  
+    - Upgrade senjata di shop  
+    - Naik level untuk lebih kuat  
+    """)
 
-    c1, c2 = st.columns(2)
-
-    with c1:
-        if st.button("⚔️ Attack"):
-            attack()
-
-    with c2:
-        if st.button("🧪 Potion"):
-            use_potion()
-
-else:
-    st.info("Belum ada musuh. Klik Explore!")
+    if st.button("⬅ KEMBALI"):
+        sfx()
+        st.session_state.screen = "menu"
 
 # =========================
-# SHOP
+# GAME SCREEN
 # =========================
-st.subheader("🛒 SHOP")
+def game():
+    st.subheader("⚔️ ADVENTURE MODE")
 
-if st.button("Pedang Kayu (50)"):
-    if player["gold"] >= 50:
-        player["weapon"] = "Pedang Kayu"
-        player["gold"] -= 50
+    st.write(f"HP: {player['hp']}/{player['max_hp']}")
+    st.write(f"Level: {player['level']}")
+    st.write(f"Gold: {player['gold']}")
+    st.write(f"Weapon: {player['weapon']}")
 
-if st.button("Pedang Besi (120)"):
-    if player["gold"] >= 120:
-        player["weapon"] = "Pedang Besi"
-        player["gold"] -= 120
+    if st.button("🗺️ EXPLORE"):
+        sfx()
+        spawn_enemy()
 
-if st.button("Pedang Legendaris (250)"):
-    if player["gold"] >= 250:
-        player["weapon"] = "Pedang Legendaris"
-        player["gold"] -= 250
+    enemy = st.session_state.enemy
+
+    if enemy:
+        st.subheader(f"👹 {enemy['name']}")
+        st.write(f"HP Enemy: {enemy['hp']}")
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            if st.button("⚔️ ATTACK"):
+                sfx()
+                attack()
+
+        with c2:
+            if st.button("🧪 POTION"):
+                sfx()
+                use_potion()
+
+    else:
+        st.info("Belum ada monster, klik EXPLORE")
+
+    st.subheader("🛒 SHOP")
+
+    if st.button("Pedang Kayu (50)"):
+        if player["gold"] >= 50:
+            sfx()
+            player["weapon"] = "Pedang Kayu"
+            player["gold"] -= 50
+
+    if st.button("Pedang Besi (120)"):
+        if player["gold"] >= 120:
+            sfx()
+            player["weapon"] = "Pedang Besi"
+            player["gold"] -= 120
+
+    if st.button("Pedang Legendaris (250)"):
+        if player["gold"] >= 250:
+            sfx()
+            player["weapon"] = "Pedang Legendaris"
+            player["gold"] -= 250
+
+    if st.button("🏠 KEMBALI MENU"):
+        sfx()
+        st.session_state.screen = "menu"
 
 # =========================
-# LEADERBOARD
+# ROUTER
 # =========================
-st.subheader("🏆 LEADERBOARD")
-
-lb = sorted(load_lb(), key=lambda x: x["score"], reverse=True)
-
-for i, l in enumerate(lb[:5]):
-    st.write(f"{i+1}. Score: {l['score']}")
+if st.session_state.screen == "menu":
+    menu()
+elif st.session_state.screen == "how":
+    how()
+elif st.session_state.screen == "game":
+    game()
