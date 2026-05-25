@@ -1,287 +1,282 @@
 import streamlit as st
 import random
-import base64
-import json
-import os
 
 # =========================
-# CONFIG
+# RPG LEGEND - STREAMLIT VERSION
 # =========================
-st.set_page_config(page_title="OPEN WORLD RPG AAA", layout="wide")
 
-SAVE_FILE = "open_world_save.json"
-
-# =========================
-# SOUND
-# =========================
-def play_sound(file):
-    try:
-        audio = open(file, "rb").read()
-        b64 = base64.b64encode(audio).decode()
-
-        st.markdown(f"""
-        <audio autoplay>
-            <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
-        </audio>
-        """, unsafe_allow_html=True)
-    except:
-        pass
-
-# =========================
-# NEW GAME
-# =========================
-def new_game():
-    return {
-        "x": 2,
-        "y": 2,
-        "hp": 120,
-        "max_hp": 120,
+# Session state
+if "player" not in st.session_state:
+    st.session_state.player = {
+        "hp": 100,
+        "max_hp": 100,
         "level": 1,
         "exp": 0,
         "gold": 0,
+        "score": 0,
         "weapon": "Tangan Kosong",
-        "inventory": ["Potion"],
-        "quest": None,
-        "quest_progress": 0
+        "inventory": ["Potion"]
     }
-
-if "player" not in st.session_state:
-    st.session_state.player = new_game()
 
 if "enemy" not in st.session_state:
     st.session_state.enemy = None
 
 player = st.session_state.player
 
-# =========================
-# WORLD MAP (5x5)
-# =========================
-WORLD = [
-    ["🌲","🌲","🏡","🌲","👹"],
-    ["🌲","🕳️","🌲","🏰","🌲"],
-    ["🌲","🌲","⚔️","🌲","🌲"],
-    ["👹","🌲","🏡","🌲","🌲"],
-    ["🌲","🏰","🌲","🕳️","👹"],
-]
-
-# =========================
-# DATA
-# =========================
+# Weapon data
 weapons = {
-    "Tangan Kosong": (3,7),
-    "Pedang Kayu": (8,14),
-    "Pedang Besi": (15,25),
+    "Tangan Kosong": (3, 7),
+    "Pedang Kayu": (8, 14),
+    "Pedang Besi": (15, 22),
+    "Pedang Legendaris": (25, 40)
 }
 
-monsters = ["Slime","Goblin","Zombie","Orc","Skeleton"]
-bosses = ["Dragon", "Dark Demon"]
-
-quests = [
-    {"name":"Bunuh 3 monster", "target":3, "reward":50},
-    {"name":"Kalahkan 1 boss", "target":1, "reward":100},
+# Monster data
+monsters = [
+    {"name": "Slime", "hp": 25, "min": 2, "max": 5, "level": 1},
+    {"name": "Goblin", "hp": 40, "min": 5, "max": 10, "level": 2},
+    {"name": "Zombie", "hp": 55, "min": 8, "max": 14, "level": 3},
+    {"name": "Orc", "hp": 80, "min": 10, "max": 18, "level": 4},
+    {"name": "Skeleton", "hp": 100, "min": 14, "max": 22, "level": 5},
+    {"name": "Dark Knight", "hp": 140, "min": 18, "max": 28, "level": 6},
+    {"name": "Demon King", "hp": 200, "min": 25, "max": 35, "level": 8}
 ]
 
 # =========================
-# UTIL
+# FUNCTIONS
 # =========================
-def r(a,b): return random.randint(a,b)
 
-def save_game():
-    with open(SAVE_FILE,"w") as f:
-        json.dump(player,f)
-    st.success("💾 Saved!")
+def rand(min_val, max_val):
+    return random.randint(min_val, max_val)
 
-def load_game():
-    if os.path.exists(SAVE_FILE):
-        with open(SAVE_FILE,"r") as f:
-            data = json.load(f)
-        st.session_state.player = data
-        st.success("📂 Loaded!")
 
 def level_up():
-    if player["exp"] >= player["level"]*60:
+    need = player["level"] * 60
+
+    if player["exp"] >= need:
         player["level"] += 1
         player["max_hp"] += 25
         player["hp"] = player["max_hp"]
         player["exp"] = 0
-        play_sound("levelup.mp3")
-        st.success("🔥 LEVEL UP!")
+        player["gold"] += 50
+        player["inventory"].append("Potion")
 
-# =========================
-# MOVEMENT
-# =========================
-def move(dx,dy):
-    player["x"] = max(0,min(4,player["x"]+dx))
-    player["y"] = max(0,min(4,player["y"]+dy))
-    play_sound("click.mp3")
-    check_tile_event()
+        st.success(f"LEVEL UP! Sekarang level {player['level']}")
 
-# =========================
-# TILE EVENTS
-# =========================
-def check_tile_event():
-    tile = WORLD[player["y"]][player["x"]]
 
-    if tile == "🌲":
-        if random.random() < 0.5:
-            spawn_enemy()
-    elif tile == "👹":
-        spawn_enemy(boss=True)
-    elif tile == "🏡":
-        player["hp"] = player["max_hp"]
-        st.success("🏡 Rest + Heal full!")
-    elif tile == "⚔️":
-        player["gold"] += 20
-        st.success("⚔️ Found loot!")
+def start_battle():
+    available = [
+        m for m in monsters
+        if m["level"] <= player["level"] + 1
+    ]
 
-# =========================
-# ENEMY
-# =========================
-def spawn_enemy(boss=False):
-    if boss:
-        name = random.choice(bosses)
-        hp = 200 + player["level"]*20
-        mn, mx = 15, 30
-    else:
-        name = random.choice(monsters)
-        hp = 60 + player["level"]*10
-        mn, mx = 5, 15
+    base = random.choice(available)
 
     st.session_state.enemy = {
-        "name": name,
-        "hp": hp,
-        "min": mn,
-        "max": mx,
-        "boss": boss
+        "name": base["name"],
+        "hp": base["hp"] + player["level"] * 5,
+        "min": base["min"] + player["level"] // 2,
+        "max": base["max"] + player["level"] // 2
     }
 
-# =========================
-# QUEST
-# =========================
-def give_quest():
-    player["quest"] = random.choice(quests)
-    player["quest_progress"] = 0
-    st.success(f"📜 Quest: {player['quest']['name']}")
 
-# =========================
-# BATTLE
-# =========================
-def attack():
+def attack_enemy():
     enemy = st.session_state.enemy
-    w = weapons[player["weapon"]]
 
-    dmg = r(w[0],w[1])
+    weapon_damage = weapons[player["weapon"]]
 
-    if r(1,100) < 20:
-        dmg *= 2
+    damage = rand(
+        weapon_damage[0],
+        weapon_damage[1]
+    )
 
-    enemy["hp"] -= dmg
-    st.success(f"⚔️ Hit {dmg}")
+    critical = False
+
+    if rand(1, 100) <= 20:
+        damage *= 2
+        critical = True
+
+    enemy["hp"] -= damage
+
+    if critical:
+        st.warning("CRITICAL HIT!")
+
+    st.success(f"Kamu menyerang {damage} damage!")
 
     if enemy["hp"] <= 0:
-        if enemy["boss"]:
-            player["quest_progress"] += 1
+        st.success(f"{enemy['name']} dikalahkan!")
 
-        player["gold"] += r(20,80)
-        player["exp"] += 40
-        st.session_state.enemy = None
+        gold_reward = rand(20, 50)
+        exp_reward = rand(20, 40)
+
+        player["gold"] += gold_reward
+        player["exp"] += exp_reward
+        player["score"] += 50
+
+        st.info(f"Gold +{gold_reward}")
+        st.info(f"EXP +{exp_reward}")
+
+        if rand(1, 100) <= 35:
+            player["inventory"].append("Potion")
+            st.info("Mendapat Potion!")
+
         level_up()
+
+        st.session_state.enemy = None
         return
 
-    # enemy attack
-    ed = r(enemy["min"],enemy["max"])
-    player["hp"] -= ed
+    # Enemy attack
+    enemy_attack = rand(enemy["min"], enemy["max"])
+
+    player["hp"] -= enemy_attack
+
+    if player["hp"] < 0:
+        player["hp"] = 0
+
+    st.error(f"Musuh menyerang {enemy_attack} damage!")
 
     if player["hp"] <= 0:
         game_over()
 
+
+def use_potion():
+    if "Potion" in player["inventory"]:
+        player["inventory"].remove("Potion")
+
+        heal = rand(20, 40)
+
+        player["hp"] += heal
+
+        if player["hp"] > player["max_hp"]:
+            player["hp"] = player["max_hp"]
+
+        st.success(f"HP bertambah {heal}")
+
+    else:
+        st.error("Tidak punya Potion!")
+
+
 def game_over():
-    st.error("💀 GAME OVER")
-    st.session_state.player = new_game()
+    st.error("GAME OVER")
+
+    player["hp"] = 100
+    player["max_hp"] = 100
+    player["level"] = 1
+    player["exp"] = 0
+    player["gold"] = 0
+    player["score"] = 0
+    player["weapon"] = "Tangan Kosong"
+    player["inventory"] = ["Potion"]
+
     st.session_state.enemy = None
-    st.rerun()
+
+    st.info("Game dimulai ulang!")
+
+
+def buy_weapon(name, price):
+    if player["gold"] >= price:
+        player["gold"] -= price
+        player["weapon"] = name
+
+        if name not in player["inventory"]:
+            player["inventory"].append(name)
+
+        st.success(f"Berhasil membeli {name}")
+
+    else:
+        st.error("Gold tidak cukup!")
+
 
 # =========================
 # UI
 # =========================
-st.title("🌍⚔️ OPEN WORLD RPG AAA")
 
-# STATUS
-col1,col2,col3 = st.columns(3)
+st.set_page_config(
+    page_title="RPG Legend",
+    page_icon="⚔️",
+    layout="wide"
+)
+
+st.title("⚔️ RPG LEGEND")
+
+# Sidebar
+st.sidebar.header("PLAYER STATUS")
+
+st.sidebar.write(f"❤️ HP : {player['hp']} / {player['max_hp']}")
+st.sidebar.write(f"⭐ Level : {player['level']}")
+st.sidebar.write(f"✨ EXP : {player['exp']}")
+st.sidebar.write(f"💰 Gold : {player['gold']}")
+st.sidebar.write(f"🏆 Score : {player['score']}")
+st.sidebar.write(f"⚔️ Weapon : {player['weapon']}")
+st.sidebar.write("🎒 Inventory:")
+st.sidebar.write(", ".join(player["inventory"]))
+
+# Adventure
+st.subheader("🏰 Lokasi Petualangan")
+
+col1, col2, col3 = st.columns(3)
+
 with col1:
-    st.write("❤️ HP:", player["hp"], "/", player["max_hp"])
+    if st.button("🌊 Sungai Gelap"):
+        start_battle()
+
+    if st.button("⛰️ Gunung Es"):
+        start_battle()
+
 with col2:
-    st.write("⭐ Level:", player["level"])
+    if st.button("🏘️ Desa Misterius"):
+        gold_found = rand(10, 30)
+        player["gold"] += gold_found
+
+        st.success(f"Menemukan {gold_found} gold!")
+        start_battle()
+
+    if st.button("🕳️ Gua Gelap"):
+        start_battle()
+
 with col3:
-    st.write("💰 Gold:", player["gold"])
+    if st.button("🏰 Kastil Tua"):
+        player["exp"] += 20
+        start_battle()
 
-st.progress(player["hp"]/player["max_hp"])
+    if st.button("🌲 Hutan Terlarang"):
+        start_battle()
 
-st.markdown("---")
+# Shop
+st.subheader("🛒 Toko Senjata")
 
-# =========================
-# MAP
-# =========================
-st.subheader("🗺️ WORLD MAP")
+shop1, shop2, shop3 = st.columns(3)
 
-for y in range(5):
-    cols = st.columns(5)
-    for x in range(5):
-        cell = WORLD[y][x]
+with shop1:
+    if st.button("Beli Pedang Kayu (50 Gold)"):
+        buy_weapon("Pedang Kayu", 50)
 
-        if player["x"] == x and player["y"] == y:
-            cols[x].markdown("🧍")
-        else:
-            cols[x].markdown(cell)
+with shop2:
+    if st.button("Beli Pedang Besi (120 Gold)"):
+        buy_weapon("Pedang Besi", 120)
 
-st.markdown("---")
+with shop3:
+    if st.button("Beli Pedang Legendaris (250 Gold)"):
+        buy_weapon("Pedang Legendaris", 250)
 
-# =========================
-# CONTROLS
-# =========================
-st.subheader("🎮 MOVE")
-
-c1,c2,c3,c4 = st.columns(4)
-
-with c1:
-    if st.button("⬆️"):
-        move(0,-1)
-with c2:
-    if st.button("⬇️"):
-        move(0,1)
-with c3:
-    if st.button("⬅️"):
-        move(-1,0)
-with c4:
-    if st.button("➡️"):
-        move(1,0)
-
-# =========================
-# ACTIONS
-# =========================
-st.subheader("⚔️ ACTION")
-
-if st.button("📜 Quest"):
-    give_quest()
-
-if st.button("💾 Save"):
-    save_game()
-
-if st.button("📂 Load"):
-    load_game()
-
-# =========================
-# BATTLE UI
-# =========================
+# Battle Area
 enemy = st.session_state.enemy
 
 if enemy:
-    st.error(f"👹 {enemy['name']} HP: {enemy['hp']}")
+    st.subheader("👹 BATTLE")
 
-    if st.button("⚔️ Attack"):
-        attack()
+    st.write(f"Musuh: {enemy['name']}")
+    st.write(f"HP Musuh: {enemy['hp']}")
 
-    if st.button("🧪 Heal Potion"):
-        if "Potion" in player["inventory"]:
-            player["hp"] = min(player["max_hp"], player["hp"]+40)
-            player["inventory"].remove("Potion")
+    b1, b2 = st.columns(2)
+
+    with b1:
+        if st.button("⚔️ Serang"):
+            attack_enemy()
+
+    with b2:
+        if st.button("🧪 Gunakan Potion"):
+            use_potion()
+
+else:
+    st.info("Belum ada musuh.")
