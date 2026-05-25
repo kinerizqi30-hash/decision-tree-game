@@ -107,7 +107,7 @@ if "player" not in st.session_state:
         "level": 1,
         "exp": 0,
         "gold": 50,         
-        "weapon": "Tangan Kosong",
+        "weapon": "👊 Tangan Kosong",
         "inventory": ["Potion", "Potion", "Potion"] 
     }
 
@@ -135,7 +135,6 @@ def load_save_code(code_string):
         decoded_bytes = base64.b64decode(code_string.strip().encode())
         loaded_data = json.loads(decoded_bytes.decode())
         
-        # Validasi struktur sebelum load data
         required_keys = ["name", "hp", "max_hp", "level", "exp", "gold", "weapon", "inventory"]
         if all(key in loaded_data for key in required_keys):
             st.session_state.player = loaded_data
@@ -153,12 +152,12 @@ def load_save_code(code_string):
 # DATA CONFIG
 # =========================
 weapons = {
-    "Tangan Kosong": (5, 12),
-    "Pedang Kayu": (15, 25),
-    "Pedang Besi": (35, 55),
-    "Pedang Legendaris": (65, 95),
-    "Tombak Langit 🔱": (110, 160),     
-    "Pedang Kosmik 🌌": (210, 310)     
+    "👊 Tangan Kosong": (5, 12),
+    "🪵 Pedang Kayu": (15, 25),
+    "⚔️ Pedang Besi": (35, 55),
+    "✨ Pedang Legendaris": (65, 95),
+    "🔱 Tombak Langit 🔱": (110, 160),     
+    "🌌 Pedang Kosmik 🌌": (210, 310)     
 }
 
 zone_monsters = {
@@ -196,7 +195,7 @@ def reset_game():
         "level": 1,
         "exp": 0,
         "gold": 50,
-        "weapon": "Tangan Kosong",
+        "weapon": "👊 Tangan Kosong",
         "inventory": ["Potion", "Potion", "Potion"]
     })
     st.session_state.enemy = None
@@ -271,7 +270,8 @@ def buy_item(name, price, is_potion=False):
             st.success("🧪 Berhasil membeli **1x Potion**!")
         else:
             player["weapon"] = name
-            st.success(f"⚔️ Senjata legendaris **{name}** kini telah dipakai!")
+            st.success(f"⚔️ Berhasil melengkapi **{name}**!")
+        st.rerun()  # << MEMAKSA REFRESH INSTAN AGAR STATUS SENJATA AKTIF BERUBAH
     else:
         st.error("Emas yang kamu miliki tidak mencukupi!")
 
@@ -317,10 +317,11 @@ elif st.session_state.screen == "game":
     with col_status:
         st.markdown("### 🛡️ KARTU STATUS HERO")
         
+        # UI dinamis menampilkan senjata aktif secara real-time
         st.markdown(f"""
         <div class='status-card'>
             <h3 style='color:#00ccff; margin:0;'>👤 {player['name']}</h3>
-            <p style='margin:5px 0 0 0; color:#8a8fab;'>Senjata aktif: <b>{player['weapon']}</b></p>
+            <p style='margin:10px 0 0 0; color:#e0e2ed; font-size:16px;'>Senjata Aktif: <b style='color:#ffcc00;'>{player['weapon']}</b></p>
         </div>
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
@@ -350,7 +351,6 @@ elif st.session_state.screen == "game":
         with st.expander("💾 MENU SAVE / LOAD GAME", expanded=False):
             st.markdown("*Salin baris kode di bawah ini untuk mengamankan data heromu, atau tempel kode lama untuk memuat data.*")
             
-            # Generate sandi save terbaru secara real-time
             current_save = generate_save_code()
             st.text_area("📋 Salin Kode Save Kamu:", value=current_save, height=70, help="Simpan teks ini di Notepad HP/PC Anda.")
             
@@ -398,12 +398,12 @@ elif st.session_state.screen == "game":
             col_shop1, col_shop2 = st.columns(2)
             with col_shop1:
                 if st.button("🧪 Beli Potion (💰 20 Gold)"): buy_item("Potion", 20, is_potion=True)
-                if st.button("🪵 Pedang Kayu (💰 50 Gold)"): buy_item("Pedang Kayu", 50)
-                if st.button("⚔️ Pedang Besi (💰 120 Gold)"): buy_item("Pedang Besi", 120)
+                if st.button("🪵 Pedang Kayu (💰 50 Gold)"): buy_item("🪵 Pedang Kayu", 50)
+                if st.button("⚔️ Pedang Besi (💰 120 Gold)"): buy_item("⚔️ Pedang Besi", 120)
             with col_shop2:
-                if st.button("✨ Pedang Legendaris (💰 300 Gold)"): buy_item("Pedang Legendaris", 300)
-                if st.button("🔱 Tombak Langit (💰 650 Gold)"): buy_item("Tombak Langit 🔱", 650)
-                if st.button("🌌 Pedang Kosmik (💰 1200 Gold)"): buy_item("Pedang Kosmik 🌌", 1200)
+                if st.button("✨ Pedang Legendaris (💰 300 Gold)"): buy_item("✨ Pedang Legendaris", 300)
+                if st.button("🔱 Tombak Langit (💰 650 Gold)"): buy_item("🔱 Tombak Langit 🔱", 650)
+                if st.button("🌌 Pedang Kosmik (💰 1200 Gold)"): buy_item("🌌 Pedang Kosmik 🌌", 1200)
 
     # ----------------------------------------
     # KOLOM 3: AREA MONSTER (KANAN)
