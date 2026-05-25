@@ -9,7 +9,7 @@ import os
 st.set_page_config(page_title="RPG LEGEND ULTIMATE", layout="wide")
 
 # =========================
-# 🎨 CSS + ANIMATION
+# 🎨 CSS RPG THEME
 # =========================
 st.markdown("""
 <style>
@@ -39,6 +39,7 @@ h1 {
     padding:10px;
     font-weight:bold;
     transition:0.2s;
+    border:none;
 }
 
 .stButton > button:hover {
@@ -46,21 +47,14 @@ h1 {
     box-shadow: 0 0 20px #22d3ee;
 }
 
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #111827, #0b1220);
+}
+
 /* Card */
 .block-container {
     padding-top: 20px;
-}
-
-/* Battle shake effect */
-.shake {
-    animation: shake 0.3s;
-}
-
-@keyframes shake {
-    0% {transform: translate(1px,1px);}
-    25% {transform: translate(-2px,2px);}
-    50% {transform: translate(2px,-2px);}
-    100% {transform: translate(0,0);}
 }
 
 </style>
@@ -69,10 +63,12 @@ h1 {
 st.markdown("<h1>⚔️ RPG LEGEND ULTIMATE</h1>", unsafe_allow_html=True)
 
 # =========================
-# SOUND (Streamlit workaround)
+# SOUND (optional)
 # =========================
 def play_sound(name):
-    st.audio(f"sounds/{name}.mp3", autoplay=True)
+    sound_path = f"sounds/{name}.mp3"
+    if os.path.exists(sound_path):
+        st.audio(sound_path, autoplay=True)
 
 # =========================
 # LEADERBOARD
@@ -130,6 +126,8 @@ monsters = [
     {"name":"Dark Knight","hp":140,"min":18,"max":28,"level":6},
 ]
 
+maps = ["🌲 Hutan","🕳️ Gua","🏰 Kastil","⛰️ Gunung"]
+
 # =========================
 # UTIL
 # =========================
@@ -148,18 +146,16 @@ def level_up():
         st.success("✨ LEVEL UP!")
 
 # =========================
-# AI ENEMY (lebih kuat sesuai level)
+# ENEMY AI
 # =========================
 def spawn_enemy():
     base = random.choice(monsters)
 
-    difficulty = player["level"] * 5
-
     st.session_state.enemy = {
         "name": base["name"],
-        "hp": base["hp"] + difficulty,
-        "min": base["min"] + player["level"]//2,
-        "max": base["max"] + player["level"]//2
+        "hp": base["hp"] + player["level"] * 5,
+        "min": base["min"] + player["level"] // 2,
+        "max": base["max"] + player["level"] // 2
     }
 
 # =========================
@@ -167,17 +163,18 @@ def spawn_enemy():
 # =========================
 def attack():
     e = st.session_state.enemy
+
     dmg = rand(*weapons[player["weapon"]])
 
     if rand(1,100) < 20:
         dmg *= 2
-        st.warning("💥 CRITICAL!")
+        st.warning("💥 CRITICAL HIT!")
 
     e["hp"] -= dmg
     st.success(f"Damage {dmg}")
 
     if e["hp"] <= 0:
-        st.success("Monster kalah!")
+        st.success(f"{e['name']} defeated!")
         player["gold"] += rand(20,50)
         player["exp"] += rand(20,40)
         player["score"] += 50
@@ -186,12 +183,10 @@ def attack():
             player["inventory"].append("Potion")
 
         level_up()
-
         st.session_state.enemy = None
         play_sound("win")
         return
 
-    # enemy AI attack
     edmg = rand(e["min"], e["max"]) + player["level"]
 
     player["hp"] -= edmg
@@ -206,11 +201,11 @@ def use_potion():
     if "Potion" in player["inventory"]:
         player["inventory"].remove("Potion")
         heal = rand(20,40)
-        player["hp"] = min(player["max_hp"], player["hp"]+heal)
+        player["hp"] = min(player["max_hp"], player["hp"] + heal)
         st.success(f"Heal +{heal}")
 
 # =========================
-# GAME OVER + LEADERBOARD
+# GAME OVER + SAVE SCORE
 # =========================
 def game_over():
     st.error("💀 GAME OVER")
@@ -228,34 +223,38 @@ def game_over():
     st.session_state.enemy = None
 
 # =========================
-# MAP SYSTEM
+# SIDEBAR MAP
 # =========================
-maps = ["🌲 Hutan","🕳️ Gua","🏰 Kastil","⛰️ Gunung"]
-
 st.sidebar.title("📍 MAP")
-choice_map = st.sidebar.radio("Pilih lokasi", maps)
+
+choice_map = st.sidebar.radio("Lokasi", maps)
 st.session_state.map = choice_map
 
 if st.sidebar.button("🚀 Explore"):
     spawn_enemy()
 
 # =========================
-# PLAYER STATUS
+# STATUS
 # =========================
 st.sidebar.title("👤 STATUS")
-st.sidebar.write(player)
+
+st.sidebar.write(f"HP: {player['hp']}/{player['max_hp']}")
+st.sidebar.write(f"Level: {player['level']}")
+st.sidebar.write(f"EXP: {player['exp']}")
+st.sidebar.write(f"Gold: {player['gold']}")
+st.sidebar.write(f"Weapon: {player['weapon']}")
+st.sidebar.write("Inventory:", player["inventory"])
 
 # =========================
-# UI ACTION
+# MAIN UI
 # =========================
 enemy = st.session_state.enemy
 
 if enemy:
     st.subheader(f"👹 {enemy['name']}")
-
     st.write(f"HP Enemy: {enemy['hp']}")
 
-    c1,c2 = st.columns(2)
+    c1, c2 = st.columns(2)
 
     with c1:
         if st.button("⚔️ Attack"):
@@ -266,7 +265,7 @@ if enemy:
             use_potion()
 
 else:
-    st.info("Belum ada musuh. Explore map!")
+    st.info("Belum ada musuh. Klik Explore!")
 
 # =========================
 # SHOP
@@ -274,26 +273,26 @@ else:
 st.subheader("🛒 SHOP")
 
 if st.button("Pedang Kayu (50)"):
-    if player["gold"]>=50:
-        player["weapon"]="Pedang Kayu"
-        player["gold"]-=50
+    if player["gold"] >= 50:
+        player["weapon"] = "Pedang Kayu"
+        player["gold"] -= 50
 
 if st.button("Pedang Besi (120)"):
-    if player["gold"]>=120:
-        player["weapon"]="Pedang Besi"
-        player["gold"]-=120
+    if player["gold"] >= 120:
+        player["weapon"] = "Pedang Besi"
+        player["gold"] -= 120
 
 if st.button("Pedang Legendaris (250)"):
-    if player["gold"]>=250:
-        player["weapon"]="Pedang Legendaris"
-        player["gold"]-=250
+    if player["gold"] >= 250:
+        player["weapon"] = "Pedang Legendaris"
+        player["gold"] -= 250
 
 # =========================
 # LEADERBOARD
 # =========================
 st.subheader("🏆 LEADERBOARD")
 
-lb = sorted(load_lb(), key=lambda x:x["score"], reverse=True)
+lb = sorted(load_lb(), key=lambda x: x["score"], reverse=True)
 
-for i,l in enumerate(lb[:5]):
+for i, l in enumerate(lb[:5]):
     st.write(f"{i+1}. Score: {l['score']}")
