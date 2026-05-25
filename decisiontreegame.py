@@ -34,7 +34,7 @@ def play_sound(action_type):
 # =========================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;900&family=Poppins:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght=600;900&family=Poppins:wght=400;600&display=swap');
 
 html, body, [data-testid="stAppViewContainer"] {
     background-color: #0d0e15 !important;
@@ -166,7 +166,6 @@ def reset_game():
 
 def spawn_enemy(zone):
     scale = player["level"]
-    # Pengali skala dipelankan agar musuh tidak langsung menjadi terlalu kuat
     if zone == "castle" and random.random() < 0.3:
         name, hp, mn, mx = random.choice(bosses)
         play_sound("attack")
@@ -178,7 +177,7 @@ def spawn_enemy(zone):
 
     st.session_state.enemy = {
         "name": name,
-        "hp": hp + scale * 10,       # Dipermudah: Skala HP musuh dikurangi setengah
+        "hp": hp + scale * 10,       # Dipermudah: Skala pertumbuhan HP musuh diperlambat
         "max_hp": hp + scale * 10,
         "min": mn + max(1, int(scale * 0.5)),
         "max": mx + scale
@@ -223,7 +222,7 @@ def heal():
     if "Potion" in player["inventory"]:
         play_sound("heal")
         player["inventory"].remove("Potion")
-        heal_amt = 60 # Dipermudah: Pemuilhan HP naik dari 40 ke 60
+        heal_amt = 60 # Dipermudah: Pemulihan HP naik dari 40 ke 60
         player["hp"] = min(player["max_hp"], player["hp"] + heal_amt)
         st.toast(f"🧪 Meminum Potion! Pulih +{heal_amt} HP", icon="❤️")
     else:
@@ -331,4 +330,24 @@ elif st.session_state.screen == "game":
             with col_s2:
                 if st.button("Pedang Besi\n(💰 120 Gold)"): buy_weapon("Pedang Besi", 120)
             with col_s3:
-                if st.button("Pedang Legendaris\n
+                if st.button("Pedang Legendaris\n(💰 300 Gold)"): buy_weapon("Pedang Legendaris", 300)
+
+    # --- MUSUH / ENEMY DISPLAY SIDE ---
+    with side_col:
+        st.markdown("### 👁️ AREA MUSUH")
+        enemy = st.session_state.enemy
+
+        if enemy:
+            enemy_hp_pct = max(0.0, min(1.0, enemy["hp"] / enemy["max_hp"]))
+            
+            st.markdown(f"""
+            <div class='enemy-card'>
+                <h2 style='color:#ff4b4b; margin:0;'>👹 {enemy['name']}</h2>
+                <p style='color:#ccc; font-size:14px; margin:5px 0 15px 0;'>DMG: {enemy['min']} - {enemy['max']}</p>
+                <h3 style='color:white; margin:0;'>HP: {enemy['hp']} / {enemy['max_hp']}</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.progress(enemy_hp_pct)
+        else:
+            st.info("Keadaan aman terendali. Silakan pilih lokasi eksplorasi di sebelah kiri untuk mencari musuh!")
